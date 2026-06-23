@@ -6,7 +6,6 @@ Small Vite + Vercel app for creating and signing BoldSign clinic contracts.
 
 - `/sign?token=...` public signer lobby and embedded BoldSign signing
 - `/sign/complete` public completion page
-- `/internal` lightweight internal dashboard for creating contracts and checking status
 
 ## Serverless API
 
@@ -16,6 +15,8 @@ Small Vite + Vercel app for creating and signing BoldSign clinic contracts.
 - `POST /api/signing/start`
 
 BoldSign secrets are read only by serverless functions. Do not prefix secret env vars with `VITE_`.
+
+Build the internal dashboard inside the existing authenticated internal app. That app should call its own serverless routes, and those routes should forward requests to this app's protected `/api/internal/*` routes using `INTERNAL_CONTRACT_API_KEY` from server-only env.
 
 ## Required Production Env
 
@@ -29,7 +30,7 @@ BOLDSIGN_DISABLE_EMAILS=true
 SIGNING_LINK_SECRET=
 SIGNING_LINK_TTL_SECONDS=1209600
 INTERNAL_CONTRACT_API_KEY=
-PUBLIC_APP_URL=https://use-reclaim.perspectiveshealth.ai
+PUBLIC_APP_URL=https://use.perspectiveshealth.ai
 ```
 
 ## Local

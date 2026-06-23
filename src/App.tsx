@@ -1,4 +1,4 @@
-import type { CSSProperties, FormEvent } from "react"
+import type { CSSProperties } from "react"
 import { useEffect, useMemo, useState } from "react"
 
 type SigningContext = {
@@ -29,27 +29,10 @@ type StartSigningResponse = {
   redirectUrl: string
 }
 
-type CreateContractResponse = {
-  documentId: string
-  signingLink: string
-  tokenExpiresAt: string
-}
-
-type ContractStatusResponse = {
-  documentId: string
-  status: string
-  completedAt: string | null
-  signers: Array<{ name: string; email: string; status: string }>
-}
-
 const startableStatuses = new Set(["sent", "viewed", "started", "inprogress", "unknown"])
 
 function App() {
   const path = window.location.pathname
-
-  if (path === "/internal") {
-    return <InternalDashboard />
-  }
 
   if (path === "/sign/complete") {
     return <CompletePage />
@@ -225,160 +208,6 @@ function SigningPage() {
   )
 }
 
-function InternalDashboard() {
-  const [apiKey, setApiKey] = useState(() => window.localStorage.getItem("contractFlow.internalApiKey") || "")
-  const [form, setForm] = useState({
-    clinicName: "",
-    signerName: "",
-    signerEmail: "",
-    supportEmail: "",
-    logoUrl: "",
-    primaryColor: "#111827",
-    accentColor: "#18c9ef",
-  })
-  const [created, setCreated] = useState<CreateContractResponse | null>(null)
-  const [statusDocumentId, setStatusDocumentId] = useState("")
-  const [contractStatus, setContractStatus] = useState<ContractStatusResponse | null>(null)
-  const [error, setError] = useState("")
-  const [isCreating, setIsCreating] = useState(false)
-  const [isChecking, setIsChecking] = useState(false)
-
-  useEffect(() => {
-    window.localStorage.setItem("contractFlow.internalApiKey", apiKey)
-  }, [apiKey])
-
-  async function createContract(event: FormEvent) {
-    event.preventDefault()
-    setIsCreating(true)
-    setError("")
-    setCreated(null)
-
-    try {
-      const response = await postJson<CreateContractResponse>(
-        "/api/internal/create-clinic-contract",
-        {
-          clinicName: form.clinicName,
-          signerName: form.signerName,
-          signerEmail: form.signerEmail,
-          supportEmail: form.supportEmail,
-          brand: {
-            logoUrl: form.logoUrl,
-            primaryColor: form.primaryColor,
-            accentColor: form.accentColor,
-          },
-        },
-        apiKey,
-      )
-      setCreated(response)
-      setStatusDocumentId(response.documentId)
-    } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to create contract."))
-    } finally {
-      setIsCreating(false)
-    }
-  }
-
-  async function checkStatus() {
-    if (!statusDocumentId) return
-
-    setIsChecking(true)
-    setError("")
-
-    try {
-      const response = await getJson<ContractStatusResponse>(
-        `/api/internal/contract-status?documentId=${encodeURIComponent(statusDocumentId)}`,
-        apiKey,
-      )
-      setContractStatus(response)
-    } catch (requestError) {
-      setError(errorMessage(requestError, "Unable to check contract status."))
-    } finally {
-      setIsChecking(false)
-    }
-  }
-
-  return (
-    <main className="dashboard-shell">
-      <section className="dashboard-panel">
-        <PerspectivesLogo />
-        <h1>Contract flow</h1>
-        <p>Create a BoldSign contract from the clinic agreement template and send the generated link manually.</p>
-        <label>
-          Internal API key
-          <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" />
-        </label>
-        <form className="form-grid" onSubmit={createContract}>
-          <label>
-            Clinic name
-            <input required value={form.clinicName} onChange={(event) => setForm({ ...form, clinicName: event.target.value })} />
-          </label>
-          <label>
-            Signer name
-            <input required value={form.signerName} onChange={(event) => setForm({ ...form, signerName: event.target.value })} />
-          </label>
-          <label>
-            Signer email
-            <input required type="email" value={form.signerEmail} onChange={(event) => setForm({ ...form, signerEmail: event.target.value })} />
-          </label>
-          <label>
-            Support email
-            <input type="email" value={form.supportEmail} onChange={(event) => setForm({ ...form, supportEmail: event.target.value })} />
-          </label>
-          <label>
-            Logo URL
-            <input value={form.logoUrl} onChange={(event) => setForm({ ...form, logoUrl: event.target.value })} />
-          </label>
-          <label>
-            Primary color
-            <input value={form.primaryColor} onChange={(event) => setForm({ ...form, primaryColor: event.target.value })} />
-          </label>
-          <label>
-            Accent color
-            <input value={form.accentColor} onChange={(event) => setForm({ ...form, accentColor: event.target.value })} />
-          </label>
-          <button className="primary-button" disabled={isCreating} type="submit">
-            {isCreating ? "Creating..." : "Create contract"}
-          </button>
-        </form>
-        {error ? <p className="error-box">{error}</p> : null}
-        {created ? (
-          <div className="result-box">
-            <strong>Contract created</strong>
-            <span>Document ID: {created.documentId}</span>
-            <textarea readOnly value={created.signingLink} />
-            <button className="secondary-button" onClick={() => void navigator.clipboard.writeText(created.signingLink)} type="button">
-              Copy signing link
-            </button>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="dashboard-panel compact">
-        <h2>Check status</h2>
-        <label>
-          Document ID
-          <input value={statusDocumentId} onChange={(event) => setStatusDocumentId(event.target.value)} />
-        </label>
-        <button className="secondary-button" disabled={isChecking || !statusDocumentId} onClick={checkStatus} type="button">
-          {isChecking ? "Checking..." : "Check status"}
-        </button>
-        {contractStatus ? (
-          <div className="result-box">
-            <strong>{contractStatus.status}</strong>
-            <span>Document ID: {contractStatus.documentId}</span>
-            {contractStatus.completedAt ? <span>Completed: {contractStatus.completedAt}</span> : null}
-            {contractStatus.signers.map((signer) => (
-              <span key={`${signer.email}-${signer.status}`}>
-                {signer.name || signer.email}: {signer.status}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </section>
-    </main>
-  )
-}
-
 function CompletePage() {
   return (
     <CenteredState
@@ -448,14 +277,6 @@ async function postJson<T>(url: string, body: unknown, internalApiKey?: string) 
       ...(internalApiKey ? { Authorization: `Bearer ${internalApiKey}` } : {}),
     },
     body: JSON.stringify(body),
-  })
-
-  return parseJsonResponse<T>(response)
-}
-
-async function getJson<T>(url: string, internalApiKey?: string) {
-  const response = await fetch(url, {
-    headers: internalApiKey ? { Authorization: `Bearer ${internalApiKey}` } : undefined,
   })
 
   return parseJsonResponse<T>(response)
