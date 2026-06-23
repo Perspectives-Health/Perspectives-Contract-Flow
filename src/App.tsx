@@ -1,5 +1,5 @@
-import type { CSSProperties } from "react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
 
 type SigningContext = {
   documentId: string
@@ -31,6 +31,41 @@ type StartSigningResponse = {
 
 const startableStatuses = new Set(["sent", "viewed", "started", "inprogress", "unknown"])
 
+const contractSections = [
+  {
+    icon: "list",
+    title: "Clinical Audit",
+    tag: "included free",
+    intro:
+      "A full review of your charts, delivered before anything else starts, so you can see exactly what problems may be costing you money.",
+    bullets: [
+      "We surface documentation issues that put your revenue and compliance at risk.",
+      "You get a dashboard with specific findings and what to do about them.",
+      "Most clinics find problems they did not know existed.",
+      "Yours to keep. This kind of analysis normally costs thousands from a billing consultant.",
+    ],
+  },
+  {
+    icon: "clock",
+    title: "Perspectives AI",
+    tag: "30 days free",
+    intro: "Full access starts the day your audit is delivered.",
+    bullets: [
+      "Every night we audit every chart for compliance issues and ways documentation can be strengthened for medical necessity.",
+      "We send you a daily report of issues, and our agent emails clinicians to make sure things are fixed before they turn into issues.",
+      "You have access to a dashboard with audit results, but you never need to log in if you do not want to.",
+      "Unlimited seats of Perspectives Scribe included.",
+    ],
+  },
+  {
+    icon: "check",
+    title: "60-Day Money-Back Guarantee",
+    tag: "no questions asked",
+    intro: "We take on all the risk so you do not have to.",
+    bullets: ["If Perspectives is not delivering value within 60 days, we refund everything you have paid."],
+  },
+]
+
 function App() {
   const path = window.location.pathname
 
@@ -43,11 +78,14 @@ function App() {
 
 function SigningPage() {
   const [context, setContext] = useState<SigningContext | null>(null)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [isContractAtBottom, setIsContractAtBottom] = useState(false)
   const [signUrl, setSignUrl] = useState("")
   const [isLoading, setIsLoading] = useState(true)
   const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState("")
-  const token = useMemo(() => new URLSearchParams(window.location.search).get("token") || "", [])
+  const contractScrollRef = useRef<HTMLDivElement>(null)
+  const token = useMemo(() => readSigningToken(), [])
 
   useEffect(() => {
     let cancelled = false
@@ -83,6 +121,38 @@ function SigningPage() {
     }
   }, [token])
 
+  useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousHtmlHeight = document.documentElement.style.height
+    const previousBodyOverflow = document.body.style.overflow
+    const previousBodyHeight = document.body.style.height
+    const rootElement = document.getElementById("root")
+    const previousRootHeight = rootElement?.style.height
+    const previousRootOverflow = rootElement?.style.overflow
+
+    document.documentElement.style.overflow = "hidden"
+    document.documentElement.style.height = "100%"
+    document.body.style.overflow = "hidden"
+    document.body.style.height = "100%"
+
+    if (rootElement) {
+      rootElement.style.height = "100%"
+      rootElement.style.overflow = "hidden"
+    }
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.documentElement.style.height = previousHtmlHeight
+      document.body.style.overflow = previousBodyOverflow
+      document.body.style.height = previousBodyHeight
+
+      if (rootElement) {
+        rootElement.style.height = previousRootHeight ?? ""
+        rootElement.style.overflow = previousRootOverflow ?? ""
+      }
+    }
+  }, [])
+
   async function startSigning() {
     setIsStarting(true)
     setError("")
@@ -97,19 +167,87 @@ function SigningPage() {
     }
   }
 
+  function goNext() {
+    if (step === 1) {
+      setStep(2)
+      return
+    }
+
+    if (step === 2) {
+      setStep(3)
+      setIsContractAtBottom(false)
+      requestAnimationFrame(() => {
+        contractScrollRef.current?.scrollTo({ top: 0 })
+      })
+      return
+    }
+
+    if (!isContractAtBottom) {
+      scrollContractDown()
+      return
+    }
+
+    void startSigning()
+  }
+
+  function goBack() {
+    if (step === 3) {
+      setStep(2)
+      return
+    }
+
+    if (step === 2) {
+      setStep(1)
+    }
+  }
+
+  function scrollContractDown() {
+    const scrollContainer = contractScrollRef.current
+
+    if (!scrollContainer) {
+      return
+    }
+
+    const nextScrollTop = Math.min(
+      scrollContainer.scrollTop + scrollContainer.clientHeight * 0.82,
+      scrollContainer.scrollHeight - scrollContainer.clientHeight,
+    )
+    const maxScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight
+
+    scrollContainer.scrollTo({
+      top: nextScrollTop,
+      behavior: "smooth",
+    })
+
+    if (nextScrollTop >= maxScrollTop - 4) {
+      setIsContractAtBottom(true)
+    }
+  }
+
+  function updateContractScrollState() {
+    const scrollContainer = contractScrollRef.current
+
+    if (!scrollContainer) {
+      return
+    }
+
+    const distanceFromBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight
+    setIsContractAtBottom(distanceFromBottom < 160)
+  }
+
   if (signUrl) {
     return (
       <main className="signing-frame-page">
         <header className="signing-frame-header">
+          <PerspectivesLogo />
           <div>
             <strong>{context?.document.title || "Signing agreement"}</strong>
             <span>Secure BoldSign signing ceremony</span>
           </div>
-          <a className="secondary-button" href={signUrl} rel="noreferrer" target="_blank">
-            Open in new tab
-          </a>
         </header>
-        <iframe className="signing-frame" src={signUrl} title="Secure document signing" />
+        <div className="signing-frame-wrap">
+          <iframe className="signing-frame" src={signUrl} title="Secure document signing" />
+        </div>
       </main>
     )
   }
@@ -128,12 +266,7 @@ function SigningPage() {
   }
 
   if (context.status === "completed") {
-    return (
-      <CenteredState
-        title="Already completed"
-        body="This agreement has already been signed and submitted."
-      />
-    )
+    return <CenteredState title="Already completed" body="This agreement has already been signed and submitted." />
   }
 
   if (!startableStatuses.has(context.status)) {
@@ -145,65 +278,63 @@ function SigningPage() {
     )
   }
 
-  const primaryColor = context.client.primaryColor || "#111827"
-  const accentColor = context.client.accentColor || "#18c9ef"
-
   return (
-    <main className="contract-shell" style={{ "--primary": primaryColor, "--accent": accentColor } as CSSProperties}>
-      <section className="lobby-panel">
-        <BrandHeader context={context} />
-        <p className="eyebrow">{context.client.displayName}</p>
-        <h1>Welcome, {context.signer.displayName}.</h1>
-        <p className="lobby-copy">
-          Please review the agreement summary, then continue into the secure BoldSign signing session.
-        </p>
-        <div className="summary-card">
-          <strong>{context.document.title}</strong>
-          <span>{context.document.description || "Please review and sign this agreement."}</span>
-          <div className="chips">
-            <span>Secure embedded signing</span>
-            <span>Expires {formatDate(context.expiresAt)}</span>
-            {context.signer.emailHint ? <span>{context.signer.emailHint}</span> : null}
+    <main className="contract-onboarding-shell">
+      {step === 1 ? (
+        <section className="flow-step">
+          <div className="welcome-panel">
+            <h1>Welcome, {context.signer.displayName}.</h1>
+            <div>
+              <p>
+                We built Perspectives for teams who are intentional about careful clinical work,
+                thoughtful onboarding, and standards that hold up in practice.
+              </p>
+              <p>This is the first step before your onboarding agreement.</p>
+            </div>
           </div>
-        </div>
-        <button className="primary-button" disabled={isStarting} onClick={startSigning} type="button">
-          {isStarting ? "Starting..." : "Review and sign"}
-        </button>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="contract-preview">
-        <div className="preview-label">Order form</div>
-        <article className="paper">
-          <PerspectivesLogo />
-          <p className="paper-eyebrow">Based on our conversation</p>
-          <ContractSection
-            title="Clinical Audit"
-            tag="included free"
-            items={[
-              "We surface documentation issues that put revenue and compliance at risk.",
-              "You get a dashboard with specific findings and what to do about them.",
-              "Most clinics find problems they did not know existed.",
-            ]}
-          />
-          <ContractSection
-            title="Perspectives AI"
-            tag="30 days free"
-            items={[
-              "Every night we audit charts for compliance and medical necessity opportunities.",
-              "Daily reports and follow-up help issues get fixed before they become denials.",
-              "Unlimited seats of Perspectives Scribe included.",
-            ]}
-          />
-          <ContractSection
-            title="60-Day Money-Back Guarantee"
-            tag="no questions asked"
-            items={["If Perspectives is not delivering value within 60 days, we refund everything paid."]}
-          />
-          <div className="terms-note">
-            By signing this order form, you agree to our Terms of Service and Business Associate Agreement.
+      {step === 2 ? (
+        <section className="flow-step">
+          <div className="start-panel">
+            <h1>Let's get started.</h1>
           </div>
-        </article>
-      </section>
+        </section>
+      ) : null}
+
+      {step === 3 ? (
+        <section className="flow-step contract-step">
+          <div className="contract-scroll transparent-scrollbar" onScroll={updateContractScrollState} ref={contractScrollRef}>
+            <div className="contract-pages">
+              <ContractDetailsPage context={context} />
+              <ContractTermsPage context={context} />
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <nav aria-label="Contract onboarding navigation" className="flow-nav">
+        <button aria-label="Back" disabled={step === 1 || isStarting} onClick={goBack} type="button">
+          Back
+        </button>
+
+        <div className="step-dots" aria-label={`Step ${step} of 3`}>
+          {[1, 2, 3].map((stepNumber) => (
+            <span className={step === stepNumber ? "active" : ""} key={stepNumber} />
+          ))}
+        </div>
+
+        <button
+          aria-label={step === 3 && !isContractAtBottom ? "Scroll contract down" : "Continue"}
+          className={step === 3 && isContractAtBottom ? "wide" : ""}
+          disabled={isStarting}
+          onClick={goNext}
+          type="button"
+        >
+          {isStarting ? "Opening" : step === 3 && !isContractAtBottom ? "Down" : step === 3 ? "Sign" : "Next"}
+        </button>
+      </nav>
     </main>
   )
 }
@@ -221,52 +352,112 @@ function CenteredState({ title, body }: { title: string; body: string }) {
   return (
     <main className="centered-shell">
       <PerspectivesLogo />
-      <div className="status-mark">✓</div>
+      <div className="status-mark">OK</div>
       <h1>{title}</h1>
       <p>{body}</p>
     </main>
   )
 }
 
-function BrandHeader({ context }: { context: SigningContext }) {
-  if (context.client.logoUrl) {
-    return <img className="client-logo" src={context.client.logoUrl} alt={context.client.displayName} />
-  }
+function ContractDetailsPage({ context }: { context: SigningContext }) {
+  return (
+    <ContractPage>
+      <PerspectivesLogo />
 
-  return <PerspectivesLogo />
+      <div className="contract-title-block">
+        <p>Based on our conversation</p>
+        <h2>{context.document.title}</h2>
+        <span>{context.signer.emailHint ? `Prepared for ${context.signer.emailHint}` : context.client.displayName}</span>
+      </div>
+
+      <div className="contract-section-list">
+        {contractSections.map((section) => (
+          <section className="contract-section" key={section.title}>
+            <OfferIcon type={section.icon} />
+            <div>
+              <div className="section-heading">
+                <h3>{section.title}</h3>
+                <ContractTag>{section.tag}</ContractTag>
+              </div>
+              <p>{section.intro}</p>
+              <ul>
+                {section.bullets.map((bullet) => (
+                  <li key={bullet}>
+                    <span>-&gt;</span>
+                    <span>{bullet}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="contract-footnote">
+        <p>Cancel any time</p>
+        <p>Unlimited standards and chart audits, 24hr customer support.</p>
+      </div>
+    </ContractPage>
+  )
 }
 
-function ContractSection({ title, tag, items }: { title: string; tag: string; items: string[] }) {
+function ContractTermsPage({ context }: { context: SigningContext }) {
   return (
-    <section className="contract-section">
-      <div className="offer-icon">→</div>
-      <div>
-        <div className="section-heading">
-          <h3>{title}</h3>
-          <span>{tag}</span>
-        </div>
-        <ul>
-          {items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
+    <ContractPage>
+      <PerspectivesLogo />
+      <div className="terms-callout">
+        <p>
+          By signing this order form, you agree to our Terms of Service and Business Associate Agreement,
+          published at perspectiveshealth.ai/terms and perspectiveshealth.ai/baa respectively.
+        </p>
       </div>
-    </section>
+
+      <div className="signature-preview">
+        <p>Customer</p>
+        <SignatureLine label="Date" value={formatDate(new Date().toISOString())} />
+        <SignatureLine label="Printed name" value={context.signer.displayName} />
+        <SignatureLine label="Clinic" value={context.client.displayName} />
+        <SignatureLine label="Signature" value="Completed in secure BoldSign ceremony" wide />
+      </div>
+
+      <ContractFooter />
+    </ContractPage>
+  )
+}
+
+function ContractPage({ children }: { children: ReactNode }) {
+  return <article className="contract-page">{children}</article>
+}
+
+function ContractTag({ children }: { children: ReactNode }) {
+  return <span className="contract-tag">{children}</span>
+}
+
+function OfferIcon({ type }: { type: string }) {
+  const label = type === "clock" ? "O" : type === "check" ? "OK" : "List"
+  return <div className="offer-icon">{label}</div>
+}
+
+function SignatureLine({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
+  return (
+    <div className={wide ? "signature-line is-wide" : "signature-line"}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  )
+}
+
+function ContractFooter() {
+  return (
+    <footer className="contract-footer">
+      <p>perspectiveshealth.ai / eshan@perspectiveshealth.ai</p>
+      <span>HIPAA Compliant</span>
+    </footer>
   )
 }
 
 function PerspectivesLogo() {
-  return (
-    <svg className="perspectives-logo" viewBox="0 0 1153.56 197.12" aria-label="Perspectives">
-      <path fill="currentColor" d="M221.28,161.44V39.78h47.97c12.05,0,21.69,3.3,28.94,9.91,7.23,6.61,10.86,15.41,10.86,26.41s-3.63,19.82-10.86,26.42c-7.25,6.6-16.89,9.91-28.94,9.91h-27.46v49.01h-20.51ZM241.79,94.7h26.07c6.37,0,11.39-1.65,15.04-4.96,3.65-3.3,5.47-7.84,5.47-13.64s-1.82-10.34-5.47-13.64c-3.65-3.3-8.66-4.95-15.04-4.95h-26.07v37.19Z" />
-      <path fill="currentColor" d="M394.73,114.34c0,3.13-.12,5.74-.35,7.82h-66.91c.81,7.53,3.5,13.5,8.08,17.9,4.57,4.41,10.34,6.61,17.29,6.61,5.79,0,10.6-1.3,14.42-3.91,3.83-2.61,6.32-6.28,7.48-11.03l17.9,4.51c-2.32,8.46-7.02,15.01-14.08,19.64-7.07,4.63-15.76,6.95-26.07,6.95-13.32,0-23.93-4.44-31.81-13.29-7.88-8.87-11.82-19.5-11.82-31.9s3.8-23.17,11.38-31.98c7.59-8.8,18.05-13.21,31.37-13.21s23.98,4.11,31.63,12.34c7.64,8.23,11.47,18.08,11.47,29.55M328.34,107.73h46.23c-.58-6.14-2.86-11.06-6.87-14.77-4-3.7-9.36-5.56-16.08-5.56-6.02,0-11.07,1.77-15.12,5.3-4.06,3.54-6.78,8.55-8.17,15.03" />
-      <path fill="currentColor" d="M459.73,92.27c-3.13-1.39-6.9-2.09-11.29-2.09-6.95,0-12.72,3.21-17.3,9.65-4.57,6.43-6.86,16.08-6.86,28.94v32.67h-18.95v-87.59h18.95v16.68c2.31-5.21,6.02-9.53,11.12-12.95,5.09-3.41,10.31-5.13,15.63-5.13,3.83,0,7.07.53,9.74,1.56l-1.05,18.25Z" />
-      <path fill="currentColor" d="M502.13,162.83c-9.85,0-17.99-2.52-24.42-7.56-6.43-5.04-10.81-11.1-13.12-18.17l15.64-6.61c3.59,11.47,10.88,17.21,21.89,17.21,4.41,0,8.02-1.1,10.86-3.3,2.84-2.2,4.26-4.93,4.26-8.18,0-3.47-1.68-6.2-5.04-8.17-3.36-1.97-7.44-3.5-12.25-4.6-4.81-1.1-9.59-2.43-14.34-4-4.75-1.56-8.81-4.26-12.16-8.08-3.36-3.82-5.04-8.8-5.04-14.94,0-6.95,2.81-12.69,8.43-17.21,5.62-4.52,13.12-6.78,22.51-6.78,8.22,0,15.52,2,21.89,6,6.37,4,10.49,9.19,12.34,15.56l-15.64,6.6c-1.05-4.16-3.34-7.47-6.87-9.9-3.54-2.43-7.39-3.65-11.56-3.65s-7.47.78-9.9,2.35c-2.43,1.56-3.65,3.8-3.65,6.69s1.68,5.36,5.03,7.04c3.36,1.68,7.45,3.04,12.25,4.08,4.81,1.04,9.65,2.37,14.51,4,4.87,1.62,8.97,4.52,12.34,8.68,3.36,4.17,5.04,9.56,5.04,16.17,0,7.64-3.08,14.02-9.21,19.12-6.15,5.1-14.08,7.65-23.81,7.65" />
-      <path fill="currentColor" d="M18.52,178.56h-7.92c-5.85,0-10.59-4.74-10.59-10.59V29.37c0-5.85,4.74-10.59,10.59-10.59h7.92c5.85,0,10.59,4.74,10.59,10.59v138.6c0,5.85-4.74,10.59-10.59,10.59" />
-      <path fill="currentColor" d="M83.3,180.29l-24.33,4.95c-6.56,1.33-12.7-3.68-12.7-10.38V22.49c0-6.7,6.14-11.71,12.7-10.38l24.33,4.94c4.94,1,8.48,5.34,8.48,10.38v142.48c0,5.03-3.54,9.38-8.48,10.38" />
-      <path fill="currentColor" d="M169.08,180.99l-46.15,15.57c-6.86,2.32-13.98-2.79-13.98-10.04V10.6c0-7.26,7.14-12.37,14.01-10.02l46.15,15.75c4.29,1.46,7.17,5.49,7.17,10.02v144.61c0,4.55-2.9,8.59-7.21,10.04" />
-    </svg>
-  )
+  return <img className="perspectives-logo" src="/perspectives-logo.png" alt="Perspectives" />
 }
 
 async function postJson<T>(url: string, body: unknown, internalApiKey?: string) {
@@ -294,6 +485,18 @@ async function parseJsonResponse<T>(response: Response) {
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback
+}
+
+function readSigningToken() {
+  const queryToken = new URLSearchParams(window.location.search).get("token")
+
+  if (queryToken) {
+    return queryToken
+  }
+
+  const hash = window.location.hash.replace(/^#/, "")
+  const hashQuery = hash.includes("?") ? hash.slice(hash.indexOf("?") + 1) : hash
+  return new URLSearchParams(hashQuery).get("token") || ""
 }
 
 function formatDate(value: string) {
