@@ -1,6 +1,6 @@
 # Perspectives Contract Flow
 
-Small Vite + Vercel app for creating and signing BoldSign clinic contracts.
+Small Vite + Vercel app for the public BoldSign clinic-contract signing experience.
 
 ## Routes
 
@@ -9,29 +9,21 @@ Small Vite + Vercel app for creating and signing BoldSign clinic contracts.
 
 ## Serverless API
 
-- `POST /api/internal/create-clinic-contract`
-- `GET /api/internal/contract-status?documentId=...`
 - `POST /api/signing/context`
 - `POST /api/signing/start`
 
-BoldSign secrets are read only by serverless functions. Do not prefix secret env vars with `VITE_`.
+Secrets are read only by serverless functions. Do not prefix secret env vars with `VITE_`.
 
-Build the internal dashboard inside the existing authenticated internal app. That app should call its own serverless routes, and those routes should forward requests to this app's protected `/api/internal/*` routes using `INTERNAL_CONTRACT_API_KEY` from server-only env.
+Contract creation and status checks are owned by the authenticated Internal Dashboard app. That app creates the BoldSign document and generates a signed `use.perspectiveshealth.ai/sign?token=...` link for this public signer app.
 
 ## Required Production Env
 
 ```env
-BOLDSIGN_API_KEY=
-BOLDSIGN_TEMPLATE_ID=
-BOLDSIGN_API_BASE_URL=https://api.boldsign.com/v1
-BOLDSIGN_TEMPLATE_ROLE_NAME=ClinicSigner
-BOLDSIGN_TEMPLATE_ROLE_INDEX=1
-BOLDSIGN_DISABLE_EMAILS=true
 SIGNING_LINK_SECRET=
-SIGNING_LINK_TTL_SECONDS=1209600
-INTERNAL_CONTRACT_API_KEY=
 PUBLIC_APP_URL=https://use.perspectiveshealth.ai
 ```
+
+`BOLDSIGN_API_KEY` is optional for the v1 flow when Internal Dashboard includes the embedded signing URL in the signed token. Keep BoldSign calls in Internal Dashboard for contract creation and signing-link generation.
 
 ## Local
 

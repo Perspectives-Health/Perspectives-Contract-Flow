@@ -1,21 +1,18 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
 
 const DEFAULT_BOLDSIGN_API_BASE_URL = "https://api.boldsign.com/v1"
-const DEFAULT_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14
+const CONFIG_ENV_NAMES = {
+  apiKey: "BOLDSIGN_API_KEY",
+  publicAppUrl: "PUBLIC_APP_URL",
+  signingLinkSecret: "SIGNING_LINK_SECRET",
+}
 
 export function getConfig() {
   return {
     apiKey: process.env.BOLDSIGN_API_KEY || "",
     apiBaseUrl: (process.env.BOLDSIGN_API_BASE_URL || DEFAULT_BOLDSIGN_API_BASE_URL).replace(/\/$/, ""),
-    templateId: process.env.BOLDSIGN_TEMPLATE_ID || "",
-    templateRoleName: process.env.BOLDSIGN_TEMPLATE_ROLE_NAME || "ClinicSigner",
-    templateRoleIndex: Number(process.env.BOLDSIGN_TEMPLATE_ROLE_INDEX || "1"),
-    disableBoldSignEmails: process.env.BOLDSIGN_DISABLE_EMAILS !== "false",
     publicAppUrl: (process.env.PUBLIC_APP_URL || "").replace(/\/$/, ""),
     signingLinkSecret: process.env.SIGNING_LINK_SECRET || "",
-    signingLinkTtlSeconds: Number(process.env.SIGNING_LINK_TTL_SECONDS || DEFAULT_TOKEN_TTL_SECONDS),
-    internalApiKey: process.env.INTERNAL_CONTRACT_API_KEY || "",
-    vercelEnv: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
   }
 }
 
@@ -23,29 +20,10 @@ export function requireConfig(config, keys) {
   const missing = keys.filter((key) => !config[key])
 
   if (missing.length > 0) {
-    const error = new Error(`Missing required environment variables: ${missing.join(", ")}`)
+    const missingEnvNames = missing.map((key) => CONFIG_ENV_NAMES[key] || key)
+    const error = new Error(`Missing server configuration: ${missingEnvNames.join(", ")}`)
     error.statusCode = 500
-    throw error
-  }
-}
-
-export function assertInternalAccess(req, config) {
-  if (!config.internalApiKey && config.vercelEnv === "production") {
-    const error = new Error("INTERNAL_CONTRACT_API_KEY must be configured in production")
-    error.statusCode = 500
-    throw error
-  }
-
-  if (!config.internalApiKey) {
-    return
-  }
-
-  const authHeader = req.headers.authorization || ""
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : ""
-
-  if (!token || token !== config.internalApiKey) {
-    const error = new Error("Unauthorized")
-    error.statusCode = 401
+    error.exposeMessage = true
     throw error
   }
 }
@@ -77,8 +55,13 @@ export function sendJson(res, statusCode, payload) {
 
 export function sendError(res, error) {
   const statusCode = error.statusCode || 500
+  console.error("[signing-api]", {
+    message: error.message,
+    statusCode,
+    payload: summarizeErrorPayload(error.payload),
+  })
   sendJson(res, statusCode, {
-    detail: statusCode >= 500 ? "Unable to complete request." : error.message,
+    detail: statusCode < 500 || error.exposeMessage ? error.message : "Unable to complete request.",
   })
 }
 
@@ -91,12 +74,6 @@ export function badRequest(message) {
   const error = new Error(message)
   error.statusCode = 400
   return error
-}
-
-export function createSigningToken(payload, secret) {
-  const encodedPayload = base64UrlEncode(JSON.stringify(payload))
-  const signature = sign(encodedPayload, secret)
-  return `${encodedPayload}.${signature}`
 }
 
 export function verifySigningToken(token, secret) {
@@ -150,12 +127,17 @@ export async function boldSignFetch(config, path, options = {}) {
   })
 
   const contentType = response.headers.get("content-type") || ""
-  const payload = contentType.includes("application/json") ? await response.json() : await response.text()
+  const responseText = await response.text()
+  const payload =
+    contentType.includes("application/json") && responseText
+      ? JSON.parse(responseText)
+      : responseText
 
   if (!response.ok) {
-    const error = new Error(`BoldSign request failed with status ${response.status}`)
+    const error = new Error(formatBoldSignError(response.status, payload))
     error.statusCode = response.status >= 500 ? 502 : response.status
     error.payload = payload
+    error.exposeMessage = response.status < 500
     throw error
   }
 
@@ -196,13 +178,15 @@ export function buildSafeContext(payload, status = "sent") {
     document: {
       title: payload.documentTitle || "Clinic Services Agreement",
       description: payload.documentDescription || "Please review and sign this agreement.",
+      monthlyPrice: payload.monthlyPrice || null,
+      priceTerms: payload.priceTerms || null,
     },
     status,
     expiresAt: new Date(Number(payload.exp) * 1000).toISOString(),
   }
 }
 
-export function slugify(value) {
+function slugify(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
@@ -241,4 +225,59 @@ function base64UrlEncode(value) {
 
 function base64UrlDecode(value) {
   return Buffer.from(value, "base64url").toString("utf8")
+}
+
+function summarizeErrorPayload(payload) {
+  if (!payload) {
+    return undefined
+  }
+
+  const serialized = typeof payload === "string" ? payload : JSON.stringify(payload)
+  return serialized.length > 1000 ? `${serialized.slice(0, 1000)}...` : serialized
+}
+
+function formatBoldSignError(status, payload) {
+  const fallback = `BoldSign request failed with status ${status}`
+
+  if (!payload) {
+    return fallback
+  }
+
+  if (typeof payload === "string") {
+    return payload.length > 240 ? `${fallback}: ${payload.slice(0, 240)}...` : `${fallback}: ${payload}`
+  }
+
+  const message =
+    payload.message ||
+    payload.Message ||
+    payload.title ||
+    payload.Title ||
+    payload.error ||
+    payload.Error ||
+    payload.detail ||
+    payload.Detail
+  const validationMessage = extractValidationMessage(payload)
+
+  if (message || validationMessage) {
+    return `${fallback}: ${[message, validationMessage].filter(Boolean).join(" ")}`
+  }
+
+  return `${fallback}: ${summarizeErrorPayload(payload)}`
+}
+
+function extractValidationMessage(payload) {
+  const errors = payload.errors || payload.Errors
+
+  if (!errors || typeof errors !== "object") {
+    return ""
+  }
+
+  const messages = Object.entries(errors)
+    .flatMap(([field, value]) => {
+      const fieldMessages = Array.isArray(value) ? value : [value]
+      return fieldMessages.map((message) => `${field}: ${String(message)}`)
+    })
+    .filter(Boolean)
+
+  return messages.join(" ")
 }

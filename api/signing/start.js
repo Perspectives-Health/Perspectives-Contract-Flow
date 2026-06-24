@@ -17,16 +17,27 @@ export default async function handler(req, res) {
 
   try {
     const config = getConfig()
-    requireConfig(config, ["apiKey", "publicAppUrl", "signingLinkSecret"])
+    requireConfig(config, ["publicAppUrl", "signingLinkSecret"])
     const { token } = await readJson(req)
     const payload = verifySigningToken(token, config.signingLinkSecret)
     const redirectUrl = `${config.publicAppUrl}/sign/complete`
+
+    if (payload.signUrl) {
+      sendJson(res, 200, {
+        signUrl: payload.signUrl,
+        mode: "embedded",
+        redirectUrl: payload.redirectUrl || redirectUrl,
+      })
+      return
+    }
+
+    requireConfig(config, ["apiKey"])
     const params = new URLSearchParams({
-      DocumentId: payload.documentId,
-      SignerEmail: payload.signerEmail,
-      RedirectUrl: redirectUrl,
+      documentId: payload.documentId,
+      signerEmail: payload.signerEmail,
+      redirectUrl: redirectUrl,
     })
-    const result = await boldSignFetch(config, `/document/getEmbeddedSignLink?${params.toString()}`)
+    const result = await getEmbeddedSignLinkWithRetry(config, params)
     const signUrl = result.signLink || result.signUrl || result.embeddedSignLink || result.url
 
     if (!signUrl) {
@@ -43,4 +54,34 @@ export default async function handler(req, res) {
   } catch (error) {
     sendError(res, error)
   }
+}
+
+async function getEmbeddedSignLinkWithRetry(config, params) {
+  let lastError
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      return await boldSignFetch(config, `/document/getEmbeddedSignLink?${params.toString()}`)
+    } catch (error) {
+      lastError = error
+
+      if (!isRetryableBoldSignReadinessError(error) || attempt === 3) {
+        throw error
+      }
+
+      await wait(1000 * (attempt + 1))
+    }
+  }
+
+  throw lastError
+}
+
+function isRetryableBoldSignReadinessError(error) {
+  return error?.statusCode === 400 || error?.statusCode === 404 || error?.statusCode === 409
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
 }
