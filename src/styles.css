@@ -1,5 +1,13 @@
 @import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap");
 
+@font-face {
+  font-family: "Bastliga One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("/fonts/bastliga-one.otf") format("opentype");
+}
+
 * {
   box-sizing: border-box;
 }
@@ -55,10 +63,11 @@ textarea {
 
 .welcome-panel {
   display: flex;
-  width: min(36rem, calc(100vw - 3rem));
+  width: min(40rem, calc(100vw - 3rem));
   height: 100%;
   margin: 0 auto;
-  padding-bottom: 6rem;
+  padding-top: 1.25rem;
+  padding-bottom: 5.25rem;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -75,20 +84,77 @@ textarea {
   letter-spacing: 0;
 }
 
-.welcome-panel div {
+.welcome-letter {
+  position: relative;
+  width: min(33rem, 100%);
   max-width: 33rem;
-  margin-top: 1.75rem;
-  color: #6e6963;
-  font-size: clamp(1.05rem, 2.5vw, 1.18rem);
-  line-height: 1.75;
+  margin-top: 3rem;
+  overflow: hidden;
+  border: 1px solid rgb(107 82 48 / 0.12);
+  background:
+    radial-gradient(circle at 18% 16%, rgb(137 105 59 / 0.055) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 72% 28%, rgb(137 105 59 / 0.04) 0 1px, transparent 1.5px),
+    linear-gradient(180deg, #fffdf8 0%, #fbf8f1 100%);
+  background-size: 2.5rem 2.5rem, 3rem 3rem, 100% 100%;
+  box-shadow:
+    0 28px 70px rgb(31 29 26 / 0.1),
+    0 2px 0 rgb(255 255 255 / 0.86) inset,
+    0 -24px 46px rgb(120 88 48 / 0.045) inset;
+  padding: clamp(2.25rem, 5vw, 3.15rem);
+  color: #5f5a54;
+  font-family: "Google Sans Flex", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(0.98rem, 2vw, 1.06rem);
+  font-weight: 400;
+  line-height: 1.78;
+  text-align: left;
+}
+
+.welcome-letter::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.5);
 }
 
 .welcome-panel p {
   margin: 0;
 }
 
-.welcome-panel p + p {
-  margin-top: 1.75rem;
+.welcome-letter p + p {
+  margin-top: 1.35rem;
+}
+
+.welcome-letter p:nth-of-type(3) {
+  margin-top: 2.15rem;
+}
+
+.welcome-signature {
+  display: inline-grid;
+  justify-items: start;
+  gap: 0.95rem;
+  margin-top: 0.8rem;
+  color: #6e6963;
+}
+
+.welcome-signature span {
+  display: block;
+  transform: rotate(-2deg);
+  font-family: "Bastliga One", "Snell Roundhand", "Brush Script MT", "Segoe Script", cursive;
+  font-size: clamp(1.8rem, 4.7vw, 2.45rem);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.welcome-signature small {
+  font-family: "Google Sans Flex", system-ui, sans-serif;
+  color: currentColor;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .start-panel {
@@ -170,7 +236,11 @@ textarea {
   background: #ffffff;
   padding: clamp(2.5rem, 6vw, 4rem);
   color: #111827;
-  box-shadow: 0 22px 70px rgb(17 24 39 / 0.08);
+}
+
+.terms-page {
+  min-height: auto;
+  padding-top: clamp(2rem, 4vw, 3rem);
 }
 
 .perspectives-logo {
@@ -194,12 +264,12 @@ textarea {
 }
 
 .contract-title-block h2 {
-  max-width: 42rem;
+  max-width: 44rem;
   margin: 2rem 0 0;
   color: #111827;
-  font-size: clamp(2.4rem, 7vw, 4.6rem);
-  font-weight: 650;
-  line-height: 0.95;
+  font-size: clamp(2rem, 6vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1;
   letter-spacing: 0;
 }
 
@@ -230,8 +300,8 @@ textarea {
 
 .offer-icon {
   display: flex;
-  width: 3rem;
-  height: 3rem;
+  width: 3.15rem;
+  height: 3.15rem;
   align-items: center;
   justify-content: center;
   border: 1px solid #e4e8ee;
@@ -239,8 +309,35 @@ textarea {
   background: #ffffff;
   box-shadow: 0 4px 12px rgb(17 24 39 / 0.05);
   color: #111827;
-  font-size: 1.25rem;
-  font-weight: 800;
+}
+
+.offer-icon svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+}
+
+.offer-icon-clock {
+  color: #18c9ef;
+}
+
+.offer-icon svg.perspectives-mark-icon {
+  width: 1.58rem;
+  height: 1.76rem;
+  fill: currentColor;
+  stroke: none;
+}
+
+.offer-icon-check {
+  color: #16a34a;
+}
+
+.offer-icon-price {
+  color: #111827;
 }
 
 .section-heading {
@@ -297,25 +394,22 @@ textarea {
   font-weight: 800;
 }
 
-.contract-footnote {
+.commercial-notes {
   display: grid;
-  margin-top: 5rem;
-  gap: 2rem;
-  color: #7b8491;
-}
-
-.contract-footnote p {
-  margin: 0;
-  font-size: 1.1rem;
+  margin-top: 1.45rem;
+  gap: 0.6rem;
+  color: #6f7a8a;
+  font-size: 0.96rem;
   font-weight: 700;
+  line-height: 1.45;
 }
 
-.contract-footnote p:first-child {
-  color: #1db954;
+.commercial-notes span:first-child {
+  color: #16a34a;
 }
 
 .terms-callout {
-  margin-top: 4rem;
+  margin-top: 2.6rem;
   border-left: 4px solid #18c9ef;
   background: rgb(255 255 255 / 0.55);
   padding: 1.75rem;
@@ -405,13 +499,13 @@ textarea {
   height: 3rem;
   align-items: center;
   justify-content: center;
+  gap: 0.45rem;
   border: 0;
   border-radius: 999px;
   background: #1c1a17;
   box-shadow: 0 12px 34px rgb(28 26 23 / 0.14);
   color: #ffffff;
   cursor: pointer;
-  font-size: 1.05rem;
   font-weight: 800;
   transition: width 220ms ease, background 180ms ease, opacity 180ms ease;
 }
@@ -424,6 +518,27 @@ textarea {
 
 .flow-nav button.wide {
   width: 6rem;
+}
+
+.nav-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.nav-icon-small {
+  width: 1rem;
+  height: 1rem;
+}
+
+.nav-label {
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .flow-nav button:disabled {
@@ -506,6 +621,49 @@ textarea {
   box-shadow: 0 18px 52px rgb(15 23 42 / 0.14);
 }
 
+.signing-frame-demo {
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.signing-frame-demo > div {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  max-width: 34rem;
+}
+
+.signing-frame-demo .perspectives-logo {
+  width: min(13rem, 68vw);
+}
+
+.signing-frame-demo p {
+  margin: 1rem 0 0;
+  color: #7b8491;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.signing-frame-demo h2 {
+  margin: 0;
+  color: #111827;
+  font-family: ui-serif, Georgia, serif;
+  font-size: clamp(2.4rem, 8vw, 4.25rem);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.signing-frame-demo span {
+  color: #6e6963;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
 .secondary-button {
   display: inline-flex;
   min-height: 2.5rem;
@@ -560,6 +718,77 @@ textarea {
   color: #22a957;
   font-size: 1.9rem;
   font-weight: 900;
+}
+
+.complete-shell {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 2rem;
+  background:
+    radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.98) 0%, rgb(255 255 255 / 0.76) 34%, transparent 68%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaf7 100%);
+  color: #1f1d1a;
+}
+
+.complete-paper {
+  display: grid;
+  width: min(34rem, 100%);
+  justify-items: center;
+  border: 1px solid rgb(107 82 48 / 0.12);
+  background:
+    radial-gradient(circle at 18% 16%, rgb(137 105 59 / 0.05) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 72% 28%, rgb(137 105 59 / 0.035) 0 1px, transparent 1.5px),
+    linear-gradient(180deg, #fffdf8 0%, #fbf8f1 100%);
+  background-size: 2.5rem 2.5rem, 3rem 3rem, 100% 100%;
+  box-shadow:
+    0 28px 70px rgb(31 29 26 / 0.1),
+    0 2px 0 rgb(255 255 255 / 0.86) inset;
+  padding: clamp(2.4rem, 6vw, 3.6rem);
+  text-align: center;
+}
+
+.complete-paper .perspectives-logo {
+  width: min(12.5rem, 68vw);
+}
+
+.complete-mark {
+  display: grid;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin-top: 3rem;
+  place-items: center;
+  border-radius: 999px;
+  background: #dff8e9;
+  color: #17a957;
+}
+
+.complete-mark svg {
+  width: 2rem;
+  height: 2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.complete-paper h1 {
+  margin: 2rem 0 0;
+  color: #1f1d1a;
+  font-family: ui-serif, Georgia, serif;
+  font-size: clamp(2.6rem, 8vw, 4.5rem);
+  font-weight: 500;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.complete-paper p {
+  max-width: 28rem;
+  margin: 1.5rem 0 0;
+  color: #6e6963;
+  font-size: 1.04rem;
+  line-height: 1.75;
 }
 
 @keyframes stepEnter {

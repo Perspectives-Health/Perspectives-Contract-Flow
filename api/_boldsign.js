@@ -178,6 +178,8 @@ export function buildSafeContext(payload, status = "sent") {
     document: {
       title: payload.documentTitle || "Clinic Services Agreement",
       description: payload.documentDescription || "Please review and sign this agreement.",
+      monthlyPrice: payload.monthlyPrice || null,
+      priceTerms: payload.priceTerms || null,
     },
     status,
     expiresAt: new Date(Number(payload.exp) * 1000).toISOString(),
