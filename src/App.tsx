@@ -663,7 +663,7 @@ function readSigningToken() {
 }
 
 function isLocalDemoMode() {
-  return import.meta.env.DEV && new URLSearchParams(window.location.search).get("demo") === "1"
+  return false
 }
 
 export default App
