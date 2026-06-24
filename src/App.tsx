@@ -32,6 +32,7 @@ type StartSigningResponse = {
 }
 
 const startableStatuses = new Set(["sent", "viewed", "started", "inprogress", "unknown"])
+const mainSiteUrl = "https://www.perspectiveshealth.ai"
 
 const demoContext: SigningContext = {
   documentId: "demo-document",
@@ -126,8 +127,7 @@ function SigningPage() {
       }
 
       if (!token) {
-        setError("This signing link is missing its secure token.")
-        setIsLoading(false)
+        redirectToMainSite()
         return
       }
 
@@ -137,9 +137,9 @@ function SigningPage() {
         if (!cancelled) {
           setContext(nextContext)
         }
-      } catch (requestError) {
+      } catch {
         if (!cancelled) {
-          setError(errorMessage(requestError, "This signing link could not be loaded."))
+          redirectToMainSite()
         }
       } finally {
         if (!cancelled) {
@@ -474,6 +474,7 @@ function ContractDetailsPage({ context }: { context: SigningContext }) {
 function CommercialTerms({ context }: { context: SigningContext }) {
   const monthlyPrice = context.document.monthlyPrice
   const priceTerms = context.document.priceTerms
+  const monthlyPriceLabel = formatMonthlyPriceLabel(monthlyPrice)
 
   if (!monthlyPrice && !priceTerms) {
     return null
@@ -485,7 +486,7 @@ function CommercialTerms({ context }: { context: SigningContext }) {
       <div>
         <div className="section-heading">
           <h3>Monthly Pricing</h3>
-          {monthlyPrice ? <ContractTag>{monthlyPrice}/month</ContractTag> : null}
+          {monthlyPriceLabel ? <ContractTag>{monthlyPriceLabel}</ContractTag> : null}
         </div>
         {priceTerms ? <p>{priceTerms}</p> : null}
         <div className="commercial-notes">
@@ -664,6 +665,20 @@ function readSigningToken() {
 
 function isLocalDemoMode() {
   return false
+}
+
+function formatMonthlyPriceLabel(value?: string | null) {
+  const price = String(value || "").trim()
+
+  if (!price) {
+    return ""
+  }
+
+  return /(?:\/\s*month|\/\s*mo|per\s+month)$/i.test(price) ? price : `${price}/month`
+}
+
+function redirectToMainSite() {
+  window.location.replace(mainSiteUrl)
 }
 
 export default App
