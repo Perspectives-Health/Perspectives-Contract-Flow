@@ -180,10 +180,19 @@ export function buildSafeContext(payload, status = "sent") {
       description: payload.documentDescription || "Please review and sign this agreement.",
       monthlyPrice: payload.monthlyPrice || null,
       priceTerms: payload.priceTerms || null,
+      trialDays: normalizeTrialDays(payload.trialDays),
+      includeMoneyBackGuarantee:
+        typeof payload.includeMoneyBackGuarantee === "boolean"
+          ? payload.includeMoneyBackGuarantee
+          : normalizeTrialDays(payload.trialDays) === 30,
     },
     status,
     expiresAt: new Date(Number(payload.exp) * 1000).toISOString(),
   }
+}
+
+function normalizeTrialDays(value) {
+  return Number(value) === 90 ? 90 : 30
 }
 
 function slugify(value) {

@@ -20,6 +20,8 @@ type SigningContext = {
     description: string | null
     monthlyPrice?: string | null
     priceTerms?: string | null
+    trialDays?: number | null
+    includeMoneyBackGuarantee?: boolean | null
   }
   status: string
   expiresAt: string
@@ -54,45 +56,54 @@ const demoContext: SigningContext = {
     monthlyPrice: "$2,500",
     priceTerms:
       "Up to 250 patients/month. Price locked through 250 patients/month — no increases as you grow within this tier.",
+    trialDays: 30,
+    includeMoneyBackGuarantee: true,
   },
   status: "sent",
   expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
 }
 
-const contractSections = [
-  {
-    icon: "list",
-    title: "Initial Comprehensive Audit",
-    tag: "Included Free",
-    intro:
-      "A full review of your charts, delivered before anything else starts, so you can see exactly what problems may be costing you money.",
-    bullets: [
-      "We surface documentation issues that put your revenue and compliance at risk.",
-      "You get specific findings and what to do about them.",
-      "Most clinics find problems they did not know existed.",
-      "Yours to keep. This kind of analysis normally costs thousands from a billing consultant.",
-    ],
-  },
-  {
-    icon: "clock",
-    title: "Perspectives AI",
-    tag: "30 Days Free",
-    intro: "Full access starts the day your audit is delivered.",
-    bullets: [
-      "Every night we audit every chart for compliance issues and ways documentation can be strengthened for medical necessity.",
-      "We send you a daily report of issues, and our agent emails clinicians to make sure things are fixed before they turn into issues.",
-      "You have access to a dashboard with daily audit results.",
-      "Unlimited seats of Perspectives Scribe included.",
-    ],
-  },
-  {
-    icon: "check",
-    title: "60-Day Money-Back Guarantee",
-    tag: "No Questions Asked",
-    intro: "We'll take on the risk.",
-    bullets: ["If Perspectives is not delivering value within 60 days, we refund everything you have paid."],
-  },
-]
+function buildContractSections(trialDays: number, includeMoneyBackGuarantee: boolean) {
+  const sections = [
+    {
+      icon: "list",
+      title: "Initial Comprehensive Audit",
+      tag: "Included Free",
+      intro:
+        "A full review of your charts, delivered before anything else starts, so you can see exactly what problems may be costing you money.",
+      bullets: [
+        "We surface documentation issues that put your revenue and compliance at risk.",
+        "You get specific findings and what to do about them.",
+        "Most clinics find problems they did not know existed.",
+        "Yours to keep. This kind of analysis normally costs thousands from a billing consultant.",
+      ],
+    },
+    {
+      icon: "clock",
+      title: "Perspectives AI",
+      tag: `${trialDays} Days Free`,
+      intro: "Full access starts the day your audit is delivered.",
+      bullets: [
+        "Every night we audit every chart for compliance issues and ways documentation can be strengthened for medical necessity.",
+        "We send you a daily report of issues, and our agent emails clinicians to make sure things are fixed before they turn into issues.",
+        "You have access to a dashboard with daily audit results.",
+        "Unlimited seats of Perspectives Scribe included.",
+      ],
+    },
+  ]
+
+  if (includeMoneyBackGuarantee) {
+    sections.push({
+      icon: "check",
+      title: "60-Day Money-Back Guarantee",
+      tag: "No Questions Asked",
+      intro: "We'll take on the risk.",
+      bullets: ["If Perspectives is not delivering value within 60 days, we refund everything you have paid."],
+    })
+  }
+
+  return sections
+}
 
 function App() {
   const path = window.location.pathname
@@ -453,6 +464,12 @@ function CenteredState({ title, body }: { title: string; body: string }) {
 }
 
 function ContractDetailsPage({ context }: { context: SigningContext }) {
+  const contractVariant = getContractVariant(context)
+  const contractSections = buildContractSections(
+    contractVariant.trialDays,
+    contractVariant.includeMoneyBackGuarantee,
+  )
+
   return (
     <ContractPage>
       <PerspectivesLogo />
@@ -488,6 +505,16 @@ function ContractDetailsPage({ context }: { context: SigningContext }) {
       </div>
     </ContractPage>
   )
+}
+
+function getContractVariant(context: SigningContext) {
+  const trialDays = Number(context.document.trialDays) === 90 ? 90 : 30
+  const includeMoneyBackGuarantee =
+    typeof context.document.includeMoneyBackGuarantee === "boolean"
+      ? context.document.includeMoneyBackGuarantee
+      : trialDays === 30
+
+  return { trialDays, includeMoneyBackGuarantee }
 }
 
 function CommercialTerms({ context }: { context: SigningContext }) {
