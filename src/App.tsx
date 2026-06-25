@@ -81,7 +81,7 @@ const contractSections = [
     bullets: [
       "Every night we audit every chart for compliance issues and ways documentation can be strengthened for medical necessity.",
       "We send you a daily report of issues, and our agent emails clinicians to make sure things are fixed before they turn into issues.",
-      "You have access to a dashboard with audit results, but you never need to log in if you do not want to.",
+      "You have access to a dashboard with daily audit results.",
       "Unlimited seats of Perspectives Scribe included.",
     ],
   },
@@ -187,6 +187,24 @@ function SigningPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (step !== 2) {
+      return undefined
+    }
+
+    const transitionTimer = window.setTimeout(() => {
+      setStep(3)
+      setIsContractAtBottom(false)
+      requestAnimationFrame(() => {
+        contractScrollRef.current?.scrollTo({ top: 0 })
+      })
+    }, 2000)
+
+    return () => {
+      window.clearTimeout(transitionTimer)
+    }
+  }, [step])
+
   async function startSigning() {
     setIsStarting(true)
     setError("")
@@ -277,7 +295,7 @@ function SigningPage() {
 
   if (signUrl) {
     return (
-      <main className="signing-frame-page">
+      <main className="signing-frame-page shell-bg-sky">
         <header className="signing-frame-header">
           <PerspectivesLogo />
           <div>
@@ -323,15 +341,15 @@ function SigningPage() {
   }
 
   return (
-    <main className="contract-onboarding-shell">
+    <main className="contract-onboarding-shell shell-bg-sky">
       {step === 1 ? (
-        <section className="flow-step">
+        <section className="flow-step welcome-step welcome-bg-sky">
           <div className="welcome-panel">
             <h1>Welcome, {context.signer.displayName}.</h1>
-            <div className="welcome-letter">
+            <div className="welcome-letter welcome-seal-right">
               <p>
                 We built Perspectives to help clinics protect their revenue, save time for their clinicians, and
-                deliver only the best care for their patients.
+                deliver the best care for their patients.
               </p>
               <p>
                 Thank you for joining us on this journey. We look forward to entering this partnership with the goal of
@@ -342,6 +360,7 @@ function SigningPage() {
                 <span>Eshan Dosani</span>
                 <small>CEO, Perspectives Health</small>
               </div>
+              <img className="welcome-wax-seal" src="/perspectives-wax-seal.png" alt="" aria-hidden="true" />
             </div>
           </div>
         </section>
@@ -404,7 +423,7 @@ function SigningPage() {
 
 function CompletePage() {
   return (
-    <main className="complete-shell">
+    <main className="complete-shell shell-bg-sky">
       <section className="complete-paper">
         <PerspectivesLogo />
         <div className="complete-mark">
